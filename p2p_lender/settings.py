@@ -29,6 +29,9 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+CSRF_TRUSTED_ORIGINS = [
+    "https://p2p-lender-production.up.railway.app"
+]
 
 # Application definition
 
