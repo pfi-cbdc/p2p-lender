@@ -2,3 +2,6 @@ Django>=5.2.3
 psycopg2-binary>=2.9.9
 dj-database-url>=1.0.0 
 python-dotenv==1.1.0
+djangorestframework
+djangorestframework-simplejwt
+django-cors-headers
