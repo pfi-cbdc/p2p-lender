@@ -18,7 +18,7 @@ class RAGSystem:
             openai_api_key=os.getenv('OPENAI_API_KEY')
         )
         self.llm = ChatOpenAI(
-            model_name="gpt-3.5-turbo",
+            model_name="gpt-4-turbo",
             temperature=0.1,
             openai_api_key=os.getenv('OPENAI_API_KEY')
         )
@@ -26,7 +26,7 @@ class RAGSystem:
         # Initialize vector store
         self.vector_store = None
         self.text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
+            chunk_size=500,
             chunk_overlap=200,
             length_function=len,
         )
@@ -44,26 +44,23 @@ class RAGSystem:
             os.makedirs(self.persist_directory)
 
     def process_json_data(self, json_data: Dict[str, Any]) -> List[Document]:
-        """Convert JSON data into LangChain Documents"""
+        """Convert JSON data into LangChain Documents (one per applicant, plus summary)"""
         documents = []
-        
-        def extract_text_from_json(obj, path=""):
-            """Recursively extract text from JSON structure"""
-            if isinstance(obj, dict):
-                for key, value in obj.items():
-                    current_path = f"{path}.{key}" if path else key
-                    extract_text_from_json(value, current_path)
-            elif isinstance(obj, list):
-                for i, item in enumerate(obj):
-                    current_path = f"{path}[{i}]"
-                    extract_text_from_json(item, current_path)
-            elif isinstance(obj, (str, int, float, bool)):
-                # Create a document for each text field
-                content = f"Field: {path}\nValue: {obj}"
-                metadata = {"source": "json_upload", "field_path": path}
+        # If the data is a list, wrap it in a dict for consistency
+        if isinstance(json_data, list):
+            json_data = {"applicants": json_data}
+        # Add a summary document if applicants exist
+        if "applicants" in json_data:
+            summary = f"This dataset contains {len(json_data['applicants'])} loan applicants with fields such as name, credit_score, app_score, loan_tenure, rate_of_interest, repayment_type, risk_category, borrower_type, monthly_income, and loan_amount."
+            documents.append(Document(page_content=summary, metadata={"source": "summary"}))
+            for idx, applicant in enumerate(json_data["applicants"]):
+                content = "\n".join([f"{k}: {v}" for k, v in applicant.items()])
+                metadata = {"source": "json_upload", "applicant_index": idx}
                 documents.append(Document(page_content=content, metadata=metadata))
-        
-        extract_text_from_json(json_data)
+        else:
+            # fallback: treat the whole JSON as one document
+            content = json.dumps(json_data, indent=2)
+            documents.append(Document(page_content=content, metadata={"source": "json_upload"}))
         return documents
 
     def build_knowledge_base(self, json_data: Dict[str, Any]) -> str:
@@ -103,8 +100,8 @@ class RAGSystem:
         
         try:
             # Get relevant documents
-            docs = self.vector_store.similarity_search(question, k=3)
-            context = "\n".join([doc.page_content for doc in docs])
+            docs = self.vector_store.similarity_search(question, k=5)
+            context = "\n---\n".join([doc.page_content for doc in docs])
             
             # Get conversation history
             chat_history = self.memory.chat_memory.messages
@@ -113,18 +110,20 @@ class RAGSystem:
                 history_text = "\n".join([f"Q: {msg.content}" if i % 2 == 0 else f"A: {msg.content}" 
                                         for i, msg in enumerate(chat_history)])
             
-            # Create prompt with context and history
+            # Improved prompt
             qa_prompt_template = """
-            Use the following context and chat history to answer the question at the end. 
-            If you don't know the answer, just say that you don't know, don't try to make up an answer.
-            
-            Context: {context}
-            
-            Chat History: {chat_history}
-            
-            Question: {question}
-            
-            Answer:"""
+You are a helpful assistant for a loan application system. The context below contains information about multiple loan applicants and their details. Use the context to answer the user's question as completely as possible. If the answer is not in the context, say \"I don't know.\"
+
+Context:
+{context}
+
+Chat History:
+{chat_history}
+
+Question: {question}
+
+Answer:
+"""
             
             PROMPT = PromptTemplate(
                 template=qa_prompt_template,
