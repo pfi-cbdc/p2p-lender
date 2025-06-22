@@ -26,4 +26,5 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/gt", health_check, name="health_check"),
     path("api/", include("users.urls")),
+    path("api/rag/", include("rag_system.urls")),
 ]

@@ -5,3 +5,10 @@ python-dotenv==1.1.0
 djangorestframework
 djangorestframework-simplejwt
 django-cors-headers
+langchain
+langchain-openai
+langchain-community
+openai
+chromadb
+tiktoken
+python-multipart
