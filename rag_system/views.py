@@ -23,10 +23,8 @@ class RAGAPIView(APIView):
                 return Response({'error': f'Invalid JSON file: {str(e)}'}, status=status.HTTP_400_BAD_REQUEST)
         else:
             # Handle raw JSON data
-            json_data = request.data
-            if not json_data:
-                return Response({'error': 'No file uploaded or JSON data provided.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+            json_data = request.data if request.data else None
+            # If neither file nor JSON, json_data will be None
         result = process_json_with_rag(json_data)
         return Response(result)
 

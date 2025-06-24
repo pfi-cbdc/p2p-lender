@@ -12,3 +12,6 @@ openai
 chromadb
 tiktoken
 python-multipart
+PyPDF2
+requests
+spacy
